@@ -1,0 +1,237 @@
+<html>
+<head>
+	<title>Space Invaders 2.0</title>
+	<script src="phaser.js"></script>
+</head>
+<body>
+	<script>
+	var game = new Phaser.Game(800, 600, Phaser.AUTO, 'Space Invaders 2.0', { preload: preload, create: create, update: update, render: render });
+
+function preload() {
+
+    game.stage.backgroundColor = '#000000';
+
+
+    game.load.crossOrigin = 'anonymous';
+
+    game.load.image('player', 'ship.png');
+    game.load.image('platform', 'metal_block.png');
+    game.load.image('laser', 'bullet36.png');
+    game.load.image('ray', 'laser.png');
+    game.load.image('startray', 'start_laser.png');
+    game.load.image('enemy', 'enemy.png');
+    game.load.image('enemy2', 'enemy2.png');
+    game.load.image('wall', 'wall.png');
+
+}
+//---------------------------------------------------------------------------------------------------------------------------------
+
+var player;
+var enemies;
+var enemies2;
+var shield;
+var wall;
+var cursors;
+var shootButton;
+var direction = 1;
+var time = 0;
+var lazering = false;
+var temp = false;
+var rows;
+var round=1;
+var checked=true;
+
+function create() {
+	//Create player
+    player = game.add.sprite(400, 500, 'player');
+	
+    game.physics.arcade.enable(player);
+
+    player.body.collideWorldBounds = true;
+	
+	//Add borders
+	wall = game.add.physicsGroup();
+	wall.create(790, 0, 'wall');
+	wall.create(0, 0, 'wall');
+	wall.setAll('body.immovable', true);
+
+
+	//Create shields
+    shield = game.add.physicsGroup();
+    shield.create(100, 450, 'platform');
+    shield.create(350, 450, 'platform');
+    shield.create(590, 450, 'platform');
+
+    shield.setAll('body.immovable', true);
+	
+	//Add a weapon
+	gun = game.add.weapon(10, 'laser');
+    gun.bulletKillType = Phaser.Weapon.KILL_WORLD_BOUNDS;
+    gun.bulletAngleOffset = 90;
+    gun.bulletSpeed = 200;
+    gun.fireRate = 500;
+    gun.trackSprite(player, 29, 0);
+	
+	//Create enemies 1
+	enemies = game.add.group();
+	enemies.enableBody = true;
+	enemies.physicsBodyType = Phaser.Physics.ARCADE;
+	enemies.createMultiple(1, 'enemies');
+	enemies.setAll('anchor.x', 0.5);
+	enemies.setAll('anchor.y', 0.5);
+	
+	//Create enemies 2
+	enemies2 = game.add.group();
+	enemies2.enableBody = true;
+	enemies2.physicsBodyType = Phaser.Physics.ARCADE;
+	enemies2.createMultiple(1, 'enemies2');
+	enemies2.setAll('anchor.x', 0.5);
+	enemies2.setAll('anchor.y', 0.5);
+	
+	//Add death ray
+	power = game.add.weapon(200, 'ray');
+    power.bulletKillType = Phaser.Weapon.KILL_WORLD_BOUNDS;
+    power.bulletAngleOffset = 90;
+    power.bulletSpeed = 1000;
+    power.fireRate = 1;
+    power.trackSprite(player, 29, -30);
+	
+	//Add start of death ray
+	animation = game.add.weapon(200, 'startray');
+    animation.bulletKillType = Phaser.Weapon.KILL_WORLD_BOUNDS;
+    animation.bulletAngleOffset = 90;
+    animation.bulletSpeed = 1000;
+    animation.fireRate = 1;
+    animation.trackSprite(player, 29, -10);
+	
+	//Add inputs
+    cursors = game.input.keyboard.createCursorKeys();
+    shootButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+    powerButton = game.input.keyboard.addKey(Phaser.Keyboard.V);
+	start = game.input.keyboard.addKey(Phaser.Keyboard.Q);
+
+}
+//---------------------------------------------------------------------------------------------------------------------------------
+
+function update () {
+
+    player.body.velocity.x = 0;
+
+    if (cursors.left.isDown)
+    {
+        player.body.velocity.x = -250;
+    }
+    else if (cursors.right.isDown)
+    {
+        player.body.velocity.x = 250;
+    }
+
+    if (shootButton.isDown && (lazering==false))
+    {
+        gun.fire();
+    }
+	
+	//Can't shoot while lazer active
+	lazering = false;
+	if (powerButton.isDown)
+    {
+        power.fire();
+		animation.fire();
+		lazering = true;
+    }
+	
+	//Check for collisions
+	game.physics.arcade.overlap(gun.bullets, shield, shieldCollide, null, this);
+	game.physics.arcade.overlap(gun.bullets, enemies, gunCollide, null, this);
+	game.physics.arcade.overlap(gun.bullets, enemies2, gunCollide, null, this);
+	game.physics.arcade.overlap(power.bullets, enemies, laserCollide, null, this);
+	game.physics.arcade.overlap(power.bullets, enemies2, laserCollide, null, this);
+	
+	//Make enemies bounce
+	game.physics.arcade.overlap(enemies, wall, Bounce, null, direction);
+	game.physics.arcade.overlap(enemies2, wall, Bounce, null, direction);
+	
+	
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ROUNDS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	//Check for suvivors
+	survivors = (enemies.total) + (enemies2.total)
+	if ((survivors==0) && (checked == false)){
+		round = round + 1;
+		temp = false;
+		checked = true;
+	}
+	
+	//ROUND 1
+	if (start.isDown && (temp==false) && (round==1))
+	{
+		Round1();
+		temp = true;
+		checked = false;
+	}
+	//ROUND 2
+	if (start.isDown && (temp==false) && (round==2))
+	{
+		Round2();
+		temp = true;
+		checked = false;
+	}
+	
+
+	//Enemies speed
+	enemies.setAll('body.velocity.y',10);
+	enemies.setAll('body.velocity.x',(50 * direction));
+	enemies.setAll('body.collideWorldBounds',true);
+	
+	enemies2.setAll('body.velocity.y',10);
+	enemies2.setAll('body.velocity.x',(50 * direction));
+	enemies2.setAll('body.collideWorldBounds',true);
+	
+	time = this.game.time.totalElapsedSeconds() % 1;
+
+}
+
+//--------------------------------------------------------------------------------------------------------------------------------
+
+
+function render(){
+	game.debug.text('Elapsed seconds: ' + this.game.time.totalElapsedSeconds(), 32, 32);
+}
+//---------------------------------------------------------------------------------------------------------------------------------
+
+//Check for bullet collision with shield
+function shieldCollide(bullet) {
+	bullet.kill();
+}
+function gunCollide(bullet,enemy) {
+	bullet.kill();
+	enemy.kill();
+	
+}
+function laserCollide(bullet,enemy) {
+	enemy.kill();
+}
+function Bounce() {
+	direction = direction * (-1);
+}
+
+//ROUNDS
+function Round1() {
+	for (rows=0;rows<3;rows++){
+		for (i=0;i<10;i++){
+			enemies.create(150 + (i*60)	, 120-(50*rows), 'enemy');
+		}
+	}
+}
+function Round2() {
+	for (rows=0;rows<2;rows++){
+		for (i=0;i<10;i++){
+			enemies.create(150 + (i*60)	, 120-(50*rows), 'enemy');
+		}
+	}
+		for (i=0;i<10;i++){
+			enemies2.create(150 + (i*60), 20, 'enemy2');
+		}
+}
+	</script>
+</body>
+</html>
