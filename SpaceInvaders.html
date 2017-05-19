@@ -4,6 +4,10 @@
 	<script src="phaser.js"></script>
 </head>
 <body>
+	<h1 style='text-align: center;'> Space Invaders 2.0 </h1>
+	
+	<div>
+		<div style='float: left;'>
 	<script>
 	var game = new Phaser.Game(800, 600, Phaser.AUTO, 'Space Invaders 2.0', { preload: preload, create: create, update: update, render: render });
 
@@ -15,23 +19,34 @@ function preload() {
     game.load.crossOrigin = 'anonymous';
 
     game.load.spritesheet('player','spaceship.png',60,70,6);
+    game.load.spritesheet('boss','miniboss.png',100,100,6);
     game.load.image('over', 'gameover.png');
     game.load.image('background', 'background.png');
-    game.load.spritesheet('platform', 'walls.png',100,25,3);
+    game.load.spritesheet('platform', 'walls.png',100,25,4);
     game.load.spritesheet('power_bar', 'power_bar.png',30,200,11);
     game.load.image('laser', 'bullet36.png');
     game.load.image('lazer', 'enemy_bullet.png');
     game.load.image('ray', 'laser.png');
     game.load.image('startray', 'start_laser.png');
     game.load.spritesheet('enemy', 'enemy.png',56,52,2);
-    game.load.spritesheet('enemy2', 'enemy2.png',56,52,3);
+    game.load.spritesheet('enemy2', 'enemy2.png',56,52,7);
+    game.load.spritesheet('enemy3', 'enemy3.png',56,52,15);
     game.load.image('wall', 'border.png');
+    game.load.image('bottom', 'bottom.png');
 	game.load.spritesheet('explosion', 'explosion.png', 56, 56, 16);
+	game.load.spritesheet('laserExplosion', 'laser expl2.png', 22, 14, 6);
+	game.load.spritesheet('laserExplosion1', 'laser expl1.png', 22, 14, 6);
+	game.load.spritesheet('laserExplosion3', 'laser expl3.png', 22, 14, 6);
+	game.load.spritesheet('rounds', 'rounds.png', 600, 200, 10);
+	game.load.spritesheet('menu', 'mainmenu.png', 800, 600, 5);
+	game.load.spritesheet('life', 'lifes.png', 80, 20, 3);
 
 }
 //---------------------------------------------------------------------------------------------------------------------------------
 
 var player;
+var miniboss;
+var minibossT;
 var enemies;
 var enemies2;
 var enemies3;
@@ -55,6 +70,7 @@ var timer2 = 0;
 var fireTimer;
 var over;
 var idle;
+var a = false;
 
 function create() {
 	 game.add.image(game.world.centerX, game.world.centerY, 'background').anchor.set(0.5);
@@ -69,11 +85,52 @@ function create() {
 	left = player.animations.add('left',[2,3]);
 	right = player.animations.add('right',[4,5]);
 	
+	//Create miniboss
+    miniboss = game.add.sprite(400, 100, 'boss');
+	minibosshealth = 2;
+	miniboss.alive=true;
+	game.physics.arcade.enable(miniboss);
+	
+	player.body.collideWorldBounds = true;
+	miniboss.anchor.x=0.5;
+	miniboss.anchor.y=0.5;
+	miniboss.visible = false;
+	minianim = miniboss.animations.add('minianim',[3,4,5]);
+	minianim2 = miniboss.animations.add('minianim2',[0,1,2]);
+
+	//Add a trigun
+	trigun1 = game.add.weapon(10, 'laser');
+    trigun1.bulletKillType = Phaser.Weapon.KILL_WORLD_BOUNDS;
+    trigun1.bulletAngleOffset = 270;
+    trigun1.bulletSpeed = -150;
+    trigun1.fireRate = 1700;
+	trigun1.fireAngle = 240;
+    trigun1.trackSprite(miniboss, 20, 30);
+	trigun2 = game.add.weapon(10, 'laser');
+    trigun2.bulletKillType = Phaser.Weapon.KILL_WORLD_BOUNDS;
+    trigun2.bulletAngleOffset = 270;
+    trigun2.bulletSpeed = -150;
+    trigun2.fireRate = 1700;
+	trigun2.fireAngle = 270;
+    trigun2.trackSprite(miniboss, 20, 25);
+	trigun3 = game.add.weapon(10, 'laser');
+    trigun3.bulletKillType = Phaser.Weapon.KILL_WORLD_BOUNDS;
+    trigun3.bulletAngleOffset = 270;
+    trigun3.bulletSpeed = -150;
+    trigun3.fireRate = 1700;
+	trigun3.fireAngle = 300;
+    trigun3.trackSprite(miniboss, 20, 25);
+	
 	//Add borders
 	wall = game.add.physicsGroup();
 	wall.create(790, 0, 'wall');
 	wall.create(0, 0, 'wall');
 	wall.setAll('body.immovable', true);
+	
+	//Add bottom
+	bottom = game.add.physicsGroup();
+	bottom.create(0, 580, 'bottom');
+	bottom.setAll('body.immovable', true);
 	
 	//Create power bar
 	bar = game.add.sprite(0,0, 'power_bar');
@@ -83,6 +140,17 @@ function create() {
 	over.anchor.x=0.5;
 	over.anchor.y=0.5;
 	over.visible = false;
+	
+	//Rounds text
+    rounds = game.add.sprite(100, 200, 'rounds');
+	rounds.visible = false;
+	
+	//Start text
+    menu = game.add.sprite(0, 0, 'menu');
+	start = menu.animations.add('start');
+	
+	//Hearts
+    life = game.add.sprite(10, 570, 'life');
 
 	//Create shields
     shields = game.add.group();
@@ -108,7 +176,6 @@ function create() {
 	enemies.createMultiple(1, 'enemies');
 	enemies.setAll('anchor.x', 0.5);
 	enemies.setAll('anchor.y', 0.5);
-	enemies.setAll('health',1);
 	
 	//Create enemies 2
 	enemies2 = game.add.group();
@@ -117,17 +184,15 @@ function create() {
 	enemies2.createMultiple(1, 'enemies2');
 	enemies2.setAll('anchor.x', 0.5);
 	enemies2.setAll('anchor.y', 0.5);
-	enemies2.setAll('health',1);
 	
 	
 	//Create enemies 3
 	enemies3 = game.add.group();
 	enemies3.enableBody = true;
 	enemies3.physicsBodyType = Phaser.Physics.ARCADE;
-	enemies3.createMultiple(1, 'enemies');
+	enemies3.createMultiple(1, 'enemies3');
 	enemies3.setAll('anchor.x', 0.5);
 	enemies3.setAll('anchor.y', 0.5);
-	enemies3.setAll('health',3);
 
 	//Create bullets for enemies 2
 	bullet = game.add.group();
@@ -158,15 +223,43 @@ function create() {
 	explosion = game.add.group();
 	explosion.enableBody = true;
 	explosion.physicsBodyType = Phaser.Physics.ARCADE;
-	explosion.createMultiple(30, 'explosion');
+	explosion.createMultiple(15, 'explosion');
 	explosion.setAll('anchor.x', 0.5);
 	explosion.setAll('anchor.y', 0.5);
 	explosion.forEach( function(explosion) {explosion.animations.add('explosion');});
+	
+	//Add enemy laser crashing
+	laserexpl = game.add.group();
+	laserexpl.enableBody = true;
+	laserexpl.physicsBodyType = Phaser.Physics.ARCADE;
+	laserexpl.createMultiple(10, 'laserExplosion');
+	laserexpl.setAll('anchor.x', 0.5);
+	laserexpl.setAll('anchor.y', 0.5);
+	laserexpl.forEach( function(laserexpl) {laserexpl.animations.add('Lexplosion');});
+	
+	//Add friendly crashing
+	laserexpl2 = game.add.group();
+	laserexpl2.enableBody = true;
+	laserexpl2.physicsBodyType = Phaser.Physics.ARCADE;
+	laserexpl2.createMultiple(10, 'laserExplosion1');
+	laserexpl2.setAll('anchor.x', 0.5);
+	laserexpl2.setAll('anchor.y', 0.5);
+	laserexpl2.forEach( function(laserexpl2) {laserexpl2.animations.add('Lexplosion');});
+	
+	//Add bullets crashing
+	laserexpl3 = game.add.group();
+	laserexpl3.enableBody = true;
+	laserexpl3.physicsBodyType = Phaser.Physics.ARCADE;
+	laserexpl3.createMultiple(10, 'laserExplosion3');
+	laserexpl3.setAll('anchor.x', 0.5);
+	laserexpl3.setAll('anchor.y', 0.5);
+	laserexpl3.forEach( function(laserexpl3) {laserexpl3.animations.add('Lexplosion');});
 	
 	//Add inputs
     cursors = game.input.keyboard.createCursorKeys();
     shootButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
     big_ass_lazer = game.input.keyboard.addKey(Phaser.Keyboard.Z);
+	cheatButton = game.input.keyboard.addKey(Phaser.Keyboard.A);
 	start = game.input.keyboard.addKey(Phaser.Keyboard.Q);
 
 }
@@ -189,6 +282,10 @@ function update () {
 		player.animations.play('idle',10,false);
 	}
 
+	    if (cheatButton.isDown && player.alive)
+    {
+        power.fire();
+    }
 	//Fire gun
     if (shootButton.isDown && (lazering==false) && player.alive)
     {
@@ -198,7 +295,7 @@ function update () {
 	//Can't shoot while lazer active
 	lazering = false;
 	//Set timer 
-	if (big_ass_lazer.isDown && player.alive && point > 15){
+	if (big_ass_lazer.isDown && player.alive && point > 150){
 		lazer_timer = 200;
 		point = 0;
 	}
@@ -212,70 +309,196 @@ function update () {
 		lazer_timer = lazer_timer - 1;
     }
 	
+	//Miniboss fire
+	if ((round==5)&&(a==true)){
+		trigun1.fire();
+		trigun2.fire();
+		trigun3.fire();
+	}
+	
 	//Check for collisions
-	game.physics.arcade.overlap(gun.bullets, shields, shieldCollide, null, this);
+	game.physics.arcade.overlap(gun.bullets, shields, shieldCollide2, null, this);
+	game.physics.arcade.overlap(trigun1.bullets, shields, shieldCollide3, null, this);
+	game.physics.arcade.overlap(trigun2.bullets, shields, shieldCollide3, null, this);
+	game.physics.arcade.overlap(trigun3.bullets, shields, shieldCollide3, null, this);
 	game.physics.arcade.overlap(gun.bullets, enemies, gunCollide, null, this);
 	game.physics.arcade.overlap(gun.bullets, enemies2, gunCollide, null, this);
-	game.physics.arcade.overlap(gun.bullets, enemies3, gunCollide, null, this);
+	game.physics.arcade.overlap(gun.bullets, enemies3, enemy3Collide, null, this);
+	if(round==5){game.physics.arcade.overlap(gun.bullets, miniboss, minibossCollide, null, this);}
 	game.physics.arcade.overlap(power.bullets, enemies, laserCollide, null, this);
 	game.physics.arcade.overlap(power.bullets, enemies2, laserCollide, null, this);
+	game.physics.arcade.overlap(power.bullets, enemies3, laserCollide, null, this);
 	game.physics.arcade.overlap(bullet, player, playerCollide, null, this);
 	game.physics.arcade.overlap(bullet, gun.bullets, bulletCollide, null, this);
 	game.physics.arcade.overlap(bullet, power.bullets, powerCollide, null, this);
-	game.physics.arcade.overlap(bullet, shields, shieldCollide, null, this);
+	game.physics.arcade.overlap(bullet, shields, shieldCollide1, null, this);
 	game.physics.arcade.overlap(enemies, shields, shieldCrash, null, this);
 	game.physics.arcade.overlap(enemies2, shields, shieldCrash, null, this);
+	game.physics.arcade.overlap(enemies3, shields, shieldCrash, null, this);
+	game.physics.arcade.overlap(miniboss, shields, miniCrash, null, this);
 	game.physics.arcade.overlap(enemies, player, Crash, null, this);
+	game.physics.arcade.overlap(enemies, bottom, Crash2, null, this);
 	game.physics.arcade.overlap(enemies2, player, Crash, null, this);
+	game.physics.arcade.overlap(enemies2, bottom, Crash2, null, this);
+	game.physics.arcade.overlap(enemies3, player, Crash, null, this);
+	game.physics.arcade.overlap(trigun1.bullets, player, Crash, null, this);
+	game.physics.arcade.overlap(trigun2.bullets, player, Crash, null, this);
+	game.physics.arcade.overlap(trigun3.bullets, player, Crash, null, this);
+	game.physics.arcade.overlap(enemies3, bottom, Crash2, null, this);
 	
 	//Make enemies bounce
 	game.physics.arcade.overlap(enemies, wall, Bounce, null, direction);
 	game.physics.arcade.overlap(enemies2, wall, Bounce, null, direction);
+	game.physics.arcade.overlap(enemies3, wall, Bounce, null, direction);
+	if (round==5){
+		game.physics.arcade.overlap(miniboss, wall, Bounce, null, direction);
+	}
 	
 	
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ROUNDS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	//Check for suvivors
-	survivors = (enemies.total) + (enemies2.total)
-	if ((survivors==0) && (checked == false)){
+	survivors = (enemies.total) + (enemies2.total) + (enemies3.total)
+	if ((survivors==0) && (checked == false)){		
+		if (round==5){
+			if (miniboss.alive == false){
+				round = round + 1;
+				temp = false;
+				checked = true;
+			}
+		}else{
 		round = round + 1;
 		temp = false;
 		checked = true;
+		}
 	}
-	
+	//Menu
+	if ((temp==false) && (round==1) && (player.alive)){
+		menu.animations.play("start",2,false);
+		shields.visible = false;
+		player.visible = false;
+		life.visible = false;
+		bar.visible = false;
+	}
 	//ROUND 1
-	if (start.isDown && (temp==false) && (round==1))
+	if (start.isDown && (temp==false) && (round==1) && (player.alive))
 	{
+		menu.visible = false;
+		shields.visible = true;
+		player.visible = true;
+		life.visible = true;
+		bar.visible = true;
 		Round1();
 		temp = true;
 		checked = false;
+		rounds.visible = false;
+	}
+	if ((temp==false) && (round==2) && (player.alive)){
+		rounds.visible = true;
+		rounds.animations.frame = 1;
 	}
 	//ROUND 2
-	if (start.isDown && (temp==false) && (round==2))
+	if (start.isDown && (temp==false) && (round==2) && (player.alive))
 	{
 		Round2();
 		temp = true;
 		checked = false;
+		rounds.visible = false;
+	}
+	if ((temp==false) && (round==3) && (player.alive)){
+		rounds.visible = true;
+		rounds.animations.frame = 2;
 	}
 	//ROUND 3
-	if (start.isDown && (temp==false) && (round==3))
+	if (start.isDown && (temp==false) && (round==3) && (player.alive))
 	{
 		Round3();
 		temp = true;
 		checked = false;
+		rounds.visible = false;
+	}
+	if ((temp==false) && (round==4) && (player.alive)){
+		rounds.visible = true;
+		rounds.animations.frame = 3;
 	}
 	//ROUND 4
-	if (start.isDown && (temp==false) && (round==4))
+	if (start.isDown && (temp==false) && (round==4) && (player.alive))
 	{
 		Round4();
 		temp = true;
 		checked = false;
+		rounds.visible = false;
+	}
+	if ((temp==false) && (round==5) && (player.alive)){
+		rounds.visible = true;
+		rounds.animations.frame = 4;
+	}
+	//ROUND 5
+		if (start.isDown && (temp==false) && (round==5) && (player.alive))
+	{
+		Round5();
+		temp = true;
+		checked = false;
+		rounds.visible = false;
+	}
+	if ((temp==false) && (round==6) && (player.alive)){
+		rounds.visible = true;
+		rounds.animations.frame = 5;
 	}
 	//ROUND 6
-	if (start.isDown && (temp==false) && (round==5))
+	if (start.isDown && (temp==false) && (round==6) && (miniboss.alive == false) && (player.alive))
 	{
 		Round6();
 		temp = true;
 		checked = false;
+		rounds.visible = false;
+	}	
+	if ((temp==false) && (round==7) && (player.alive)){
+		rounds.visible = true;
+		rounds.animations.frame = 6;
+	}
+	//ROUND 7
+	if (start.isDown && (temp==false) && (round==7) && (player.alive))
+	{
+		Round7();
+		temp = true;
+		checked = false;
+		rounds.visible = false;
+	}
+	if ((temp==false) && (round==8) && (player.alive)){
+		rounds.visible = true;
+		rounds.animations.frame = 7;
+	}
+	//ROUND 8
+	if (start.isDown && (temp==false) && (round==8) && (player.alive))
+	{
+		Round8();
+		temp = true;
+		checked = false;
+		rounds.visible = false;
+	}
+	if ((temp==false) && (round==9) && (player.alive)){
+		rounds.visible = true;
+		rounds.animations.frame = 8;
+	}
+	//ROUND 9
+	if (start.isDown && (temp==false) && (round==9) && (player.alive))
+	{
+		Round9();
+		temp = true;
+		checked = false;
+		rounds.visible = false;
+	}	
+	if ((temp==false) && (round==10) && (player.alive)){
+		rounds.visible = true;
+		rounds.animations.frame = 9;
+	}
+	//ROUND 10
+	if (start.isDown && (temp==false) && (round==10) && (player.alive))
+	{
+		Round10();
+		temp = true;
+		checked = false;
+		rounds.visible = false;
 	}
 	//GAME OVER
 	if (player.alive == false){
@@ -306,6 +529,11 @@ function update () {
 	}else if (enemies2.total < 31){
 		fireTimer = 20;
 	}
+	
+	//Update hearts
+	if(player.health==2){life.animations.frame = 1;}
+	if(player.health==1){life.animations.frame = 2;}
+	if(player.health==0){life.kill();bar.kill();}
 
 	
 	//Enemies shooting
@@ -321,21 +549,45 @@ function update () {
 	
 	
 	//Enemies speed
+	enemies.setAll('body.velocity.x',50*direction	);
 	enemies.setAll('body.velocity.y',10);
-	enemies.setAll('body.velocity.x',(50 * direction));
 	enemies.setAll('body.collideWorldBounds',true);
 	
+	enemies2.setAll('body.velocity.x',50*direction);
 	enemies2.setAll('body.velocity.y',10);
-	enemies2.setAll('body.velocity.x',(50 * direction));
 	enemies2.setAll('body.collideWorldBounds',true);
-	bullet.setAll('body.velocity.y', 120);
+	bullet.setAll('body.velocity.y', 220);
 	
+	enemies3.setAll('body.velocity.x',50*direction);
 	enemies3.setAll('body.velocity.y',10);
-	enemies3.setAll('body.velocity.x',(50 * direction));
 	enemies3.setAll('body.collideWorldBounds',true);
 	
-	time = this.game.time.totalElapsedSeconds() % 1;
+	if ((round==5)&&(a==true)){miniboss.body.velocity.y = 5;enemies3.setAll('body.velocity.y',5);}
 	
+	if ((direction == 1) && (a==true)){
+		enemies.setAll('body.velocity.x',(50));
+		enemies2.setAll('body.velocity.x',(50));
+		enemies3.setAll('body.velocity.x',(50));
+		if (round==5){miniboss.body.velocity.x = 50;}
+	}
+	if ((direction == -1) && (a==true)){
+		enemies.setAll('body.velocity.x',(-50));
+		enemies2.setAll('body.velocity.x',(-50));
+		enemies3.setAll('body.velocity.x',(-50));
+		if (round==5){miniboss.body.velocity.x = -50;}
+	}
+	//Add animations for miniboss
+	if ((round==5)&&(survivors==0)){
+		miniboss.animations.play("minianim",5,false);
+	}else{
+		miniboss.animations.play("minianim2",5,false);
+	}
+	if (minibosshealth == 2){
+	
+	}
+	
+	time = this.game.time.totalElapsedSeconds() % 1;
+
 	//Update power bar
 	points();
 
@@ -345,22 +597,61 @@ function update () {
 
 
 function render(){
-	game.debug.text('Time: ' + this.game.time.totalElapsedSeconds(), 32, 32);
-	game.debug.text('Health: ' + player.health, 15, 580);
+	if(player.alive){game.debug.text('Time: ' + Math.round(this.game.time.totalElapsedSeconds()), 32, 32);}
 }
 //---------------------------------------------------------------------------------------------------------------------------------
 
 //Check for bullet collision with shield
-function shieldCollide(bullet,shield) {
+function shieldCollide1(bullet,shield) {
 	bullet.kill();
 	shield.damage(1);
-	if (shield.health < 20){
+	if (shield.health < 30){
 		if(shield.health < 10){
+			shield.animations.frame = 3;
+		}else if (shield.health < 20){{
 			shield.animations.frame = 2;
-		}else {
+		}
+		}else{
 			shield.animations.frame = 1;
 		}
 	}
+	var boom = laserexpl.getFirstExists(false);
+	boom.reset(bullet.body.x + 10, bullet.body.y + 20);
+	boom.play('Lexplosion', 30, false, true);
+}
+function shieldCollide2(bullet,shield) {
+	bullet.kill();
+	shield.damage(1);
+	if (shield.health < 30){
+		if(shield.health < 10){
+			shield.animations.frame = 3;
+		}else if (shield.health < 20){{
+			shield.animations.frame = 2;
+		}
+		}else{
+			shield.animations.frame = 1;
+		}
+	}
+	var boom = laserexpl2.getFirstExists(false);
+	boom.reset(bullet.body.x + 10, bullet.body.y + 12);
+	boom.play('Lexplosion', 30, false, true);
+}
+function shieldCollide3(bullet,shield) {
+	bullet.kill();
+	shield.damage(1);
+	if (shield.health < 30){
+		if(shield.health < 10){
+			shield.animations.frame = 3;
+		}else if (shield.health < 20){{
+			shield.animations.frame = 2;
+		}
+		}else{
+			shield.animations.frame = 1;
+		}
+	}
+	//var boom = laserexpl2.getFirstExists(false);
+	//boom.reset(bullet.body.x + 10, bullet.body.y);
+	//boom.play('Lexplosion', 30, false, true);
 }
 function shieldCrash(enemy,shield) {
 	enemy.kill();
@@ -369,13 +660,49 @@ function shieldCrash(enemy,shield) {
 	boom.reset(enemy.body.x + 20, enemy.body.y + 20);
 	boom.play('explosion', 30, false, true);
 }
+function miniCrash(miniboss,shield) {
+	shield.kill();
+	if (survivors == 0){
+		minibosshealth = minibosshealth - 1;
+		if (minibosshealth == 1){
+			enemies3.create(miniboss.body.x -80 , miniboss.body.y+45, 'enemy3');
+			enemies3.create(miniboss.body.x +125 , miniboss.body.y+45, 'enemy3');
+			enemies3.create(miniboss.body.x +23 , miniboss.body.y + 105, 'enemy3');
+			animate();
+		}
+		if (minibosshealth==0){miniboss.kill();}
+	}	
+	if (miniboss.alive == false){
+		var boom = explosion.getFirstExists(false);
+		boom.reset(miniboss.body.x + 50, miniboss.body.y + 50);
+		boom.play('explosion', 30, false, true);
+		//Amount of enemies killed
+		if (point < 151){
+			point = point + 20;
+		}
+	}
+}
+//Hits player
 function Crash(player,enemy) {
 	enemy.kill();
 	player.damage(1);
+	var boom = explosion.getFirstExists(false);
+	boom.reset(enemy.body.x + 20, enemy.body.y + 20);
+	boom.play('explosion', 30, false, true);
+	hit();
 }
+//Hits bottom of screen
+function Crash2(enemy,bottom) {
+	enemy.kill();
+	player.damage(1);
+	var boom = explosion.getFirstExists(false);
+	boom.reset(enemy.body.x + 20, enemy.body.y + 20);
+	boom.play('explosion', 30, false, true);
+}
+
 function gunCollide(bullet,enemy) {
-	bullet.damage(1);
-	enemy.damage(1);
+	bullet.kill();
+	enemy.kill();
 	if (enemy.alive == false){
 		var boom = explosion.getFirstExists(false);
 		boom.reset(enemy.body.x + 20, enemy.body.y + 20);
@@ -383,6 +710,49 @@ function gunCollide(bullet,enemy) {
 		//Amount of enemies killed
 		if (point < 151){
 			point = point + 1;
+		}
+	}
+}
+function enemy3Collide(bullet,enemy){
+	bullet.kill();
+	if (enemy.animations.frame < 5){
+		medium = enemy.animations.add('medium', [5, 6, 7, 8, 9]);
+		enemy.animations.play('medium',3,true);
+	}
+	if ((enemy.animations.frame > 5)&&(enemy.animations.frame < 10)){
+	low = enemy.animations.add('low', [10, 11, 12, 13, 14]);
+	enemy.animations.play('low',3,true);
+	}
+	if (enemy.animations.frame > 10){enemy.kill();}
+	if (enemy.alive == false){
+		var boom = explosion.getFirstExists(false);
+		boom.reset(enemy.body.x + 20, enemy.body.y + 20);
+		boom.play('explosion', 30, false, true);
+		//Amount of enemies killed
+		if (point < 151){ 
+			point = point +1;
+		}
+	}
+}
+function minibossCollide(miniboss,bullet){
+	bullet.kill();
+	if (survivors == 0){
+		minibosshealth = minibosshealth - 1;
+		if (minibosshealth == 1){
+			enemies3.create(miniboss.body.x -80 , miniboss.body.y+45, 'enemy3');
+			enemies3.create(miniboss.body.x +125 , miniboss.body.y+45, 'enemy3');
+			enemies3.create(miniboss.body.x +23 , miniboss.body.y + 105, 'enemy3');
+			animate();
+		}
+		if (minibosshealth==0){miniboss.kill();}
+	}	
+	if (miniboss.alive == false){
+		var boom = explosion.getFirstExists(false);
+		boom.reset(miniboss.body.x + 50, miniboss.body.y + 50);
+		boom.play('explosion', 30, false, true);
+		//Amount of enemies killed
+		if (point < 151){
+			point = point + 20;
 		}
 	}
 }
@@ -395,10 +765,14 @@ function playerCollide(player,bullet) {
 	var boom = explosion.getFirstExists(false);
 	boom.reset(bullet.body.x + 20, bullet.body.y + 20);
 	boom.play('explosion', 30, false, true);
+	hit();
 }
 function bulletCollide(gun,bullet) {
 	gun.kill();
 	bullet.kill();
+	var boom = laserexpl3.getFirstExists(false);
+	boom.reset(bullet.body.x + 10, bullet.body.y);
+	boom.play('Lexplosion', 30, false, true);
 }
 function powerCollide(gun,bullet) {
 	gun.kill();
@@ -417,10 +791,10 @@ function Shoot(enemy){
 function animate(){
 	enemies.callAll('animations.add', 'animations', 'animate', [0, 1, 2], 3, true);
 	enemies.callAll('animations.play', 'animations', 'animate');
-	enemies2.callAll('animations.add', 'animations', 'animate', [0, 1, 2], 3, true);
+	enemies2.callAll('animations.add', 'animations', 'animate', [0, 1, 2, 4, 5, 6], 3, true);
 	enemies2.callAll('animations.play', 'animations', 'animate');
-	enemies3.callAll('animations.add', 'animations', 'animate', [0, 1, 2], 3, true);
-	enemies3.callAll('animations.play', 'animations', 'animate');
+	enemies3.callAll('animations.add', 'animations', 'high', [0, 1, 2, 3, 4], 3, true);
+	enemies3.callAll('animations.play', 'animations', 'high');
 }
 
 //Charge power bar
@@ -482,6 +856,15 @@ function Round4() {
 	}
 	animate();
 }
+function Round5(){
+	clear();
+	miniboss.visible = true;
+	a = true;
+	enemies3.create(275, 100, 'enemy3');
+	enemies3.create(470, 100, 'enemy3');
+	enemies3.create(373, 160, 'enemy3');
+	animate();
+}
 function Round6() {
 	clear();
 	for (rows=0;rows<2;rows++){
@@ -490,18 +873,84 @@ function Round6() {
 		}
 	}
 		for (i=0;i<10;i++){
-			enemies3.create(140 + (i*65), 120, 'enemy2');
+			enemies3.create(140 + (i*65), 120, 'enemy3');
+		}
+	animate();
+}
+function Round7() {
+	clear();
+	for (i=0;i<10;i++){
+		enemies2.create(140 + (i*65), 70, 'enemy2');
+	}
+	for (i=0;i<10;i++){
+		enemies.create(140 + (i*65)	, 10, 'enemy');
+	}
+		for (i=0;i<10;i++){
+			enemies3.create(140 + (i*65), 120, 'enemy3');
+		}
+	animate();
+}
+function Round8() {
+	clear();
+	for (i=0;i<10;i++){
+		enemies.create(140 + (i*65), 70, 'enemy');
+	}
+	for (i=0;i<10;i++){
+		enemies2.create(140 + (i*65)	, 10, 'enemy2');
+	}
+		for (i=0;i<10;i++){
+			enemies3.create(140 + (i*65), 120, 'enemy3');
+		}
+	animate();
+}
+function Round9() {
+	clear();
+	for (rows=0;rows<2;rows++){
+		for (i=0;i<10;i++){
+			enemies2.create(140 + (i*65)	, 70-(60*rows), 'enemy2');
+		}
+	}
+		for (i=0;i<10;i++){
+			enemies3.create(140 + (i*65), 120, 'enemy3');
 		}
 	animate();
 }
 
+
+
 function clear() {
 	gun.killAll();
 	power.killAll();
+	trigun1.killAll();
+	trigun2.killAll();
+	trigun3.killAll();
 	animation.killAll();
 	bullet.removeAll(true);
 	enemies.removeAll(true);
+	enemies2.removeAll(true);
+	enemies3.removeAll(true);
+}
+function hit() {
+	bullet.removeAll(true);	
+	gun.killAll();
+	power.killAll();
+	trigun1.killAll();
+	trigun2.killAll();
+	trigun3.killAll();
 }
 	</script>
+		</div>
+		<div style='float: right;width: 35%;'>
+		<h3 style='text-align: left;'>Instructions:</h3>
+		<br>
+		-Q to start & next round
+		<br>
+		-SPACE to shoot
+		<br>
+		-Arrows to move
+		<br>
+		-Press z with power bar full to shoot LAZER!!
+		</div>
+	</div>
 </body>
 </html>
