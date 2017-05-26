@@ -3,7 +3,7 @@
 	<title>Space Invaders 2.0</title>
 	<script src="phaser.js"></script>
 </head>
-<body>
+<body style="background-image: url('background2.png'); background-repeat: repeat;">
 	<h1 style='text-align: center;'> Space Invaders 2.0 </h1>
 	
 	<div>
@@ -23,7 +23,7 @@ function preload() {
     game.load.image('over', 'gameover.png');
     game.load.image('background', 'background.png');
     game.load.spritesheet('platform', 'walls.png',100,25,4);
-    game.load.spritesheet('power_bar', 'power_bar.png',30,200,11);
+    game.load.spritesheet('power_bar', 'power_bar.png',30,200,13);
     game.load.image('laser', 'bullet36.png');
     game.load.image('lazer', 'enemy_bullet.png');
     game.load.image('ray', 'laser.png');
@@ -66,7 +66,7 @@ var round=1;
 var checked=true;
 var any;
 var timer = 0;
-var timer2 = 0;
+var timer2 = 50;
 var fireTimer;
 var over;
 var idle;
@@ -90,13 +90,13 @@ function create() {
 	minibosshealth = 2;
 	miniboss.alive=true;
 	game.physics.arcade.enable(miniboss);
-	
-	player.body.collideWorldBounds = true;
+	miniboss.body.collideWorldBounds = true;
 	miniboss.anchor.x=0.5;
 	miniboss.anchor.y=0.5;
 	miniboss.visible = false;
 	minianim = miniboss.animations.add('minianim',[3,4,5]);
 	minianim2 = miniboss.animations.add('minianim2',[0,1,2]);
+	
 
 	//Add a trigun
 	trigun1 = game.add.weapon(10, 'laser');
@@ -511,7 +511,7 @@ function update () {
 	}
 	
 	//Timer for bounce
-	if (timer2<5){
+	if (timer2<50){
 		timer2 += 1;
 	}
 	
@@ -779,7 +779,7 @@ function powerCollide(gun,bullet) {
 
 }
 function Bounce() {
-	if (timer2==5){
+	if (timer2==50){
 		direction = direction * (-1);
 		timer2=0;
 	}
@@ -799,17 +799,19 @@ function animate(){
 
 //Charge power bar
 function points(){
-	if (point == 150){bar.animations.frame = 10;}
-	if (point < 150){bar.animations.frame = 9;}
-	if (point < 135){bar.animations.frame = 8;}
-	if (point < 120){bar.animations.frame = 7;}
-	if (point < 105){bar.animations.frame = 6;}
-	if (point < 90){bar.animations.frame = 5;}
-	if (point < 75){bar.animations.frame = 4;}
-	if (point < 60){bar.animations.frame = 3;}
-	if (point < 45){bar.animations.frame = 2;}
-	if (point < 30){bar.animations.frame = 1;}
-	if (point < 15){bar.animations.frame = 0;}
+	if (point == 150){bar.animations.frame = 12;}
+	if (point == 149){bar.animations.frame = 11;}
+	if (point < 150){bar.animations.frame = 10;}
+	if (point < 135){bar.animations.frame = 9;}
+	if (point < 120){bar.animations.frame = 8;}
+	if (point < 105){bar.animations.frame = 7;}
+	if (point < 90){bar.animations.frame = 6;}
+	if (point < 75){bar.animations.frame = 5;}
+	if (point < 60){bar.animations.frame = 4;}
+	if (point < 45){bar.animations.frame = 3;}
+	if (point < 30){bar.animations.frame = 2;}
+	if (point < 15){bar.animations.frame = 1;}
+	if (point < 5){bar.animations.frame = 0;}
 
 }
 
@@ -943,6 +945,8 @@ function hit() {
 		<div style='float: right;width: 35%;'>
 		<h3 style='text-align: left;'>Instructions:</h3>
 		<br>
+		-F11 to put in fullscreen
+		<br>
 		-Q to start & next round
 		<br>
 		-SPACE to shoot
@@ -950,6 +954,9 @@ function hit() {
 		-Arrows to move
 		<br>
 		-Press z with power bar full to shoot LAZER!!
+		<br>
+		-ctrl + R to restart
+		<br>
 		</div>
 	</div>
 </body>
